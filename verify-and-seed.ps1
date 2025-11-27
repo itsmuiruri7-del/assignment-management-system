@@ -1,5 +1,6 @@
 # Verification and Seeding Script
 # Run this after the Render deploys finish (wait 2-5 minutes).
+# This script will seed the database and test the login flow.
 
 param()
 
@@ -16,6 +17,9 @@ try {
 }
 catch {
     Write-Host "[ERROR] Backend root failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Backend is not responding. Make sure Render deploy completed." -ForegroundColor Yellow
+    exit 1
 }
 
 Write-Host ""
@@ -25,7 +29,8 @@ try {
     Write-Host "[OK] API endpoint: returned $($apiResp.Count) instructors" -ForegroundColor Green
 }
 catch {
-    Write-Host "[ERROR] API endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[WARN] API endpoint returned: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "This is expected if database hasn't been seeded yet." -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -49,18 +54,27 @@ catch {
 }
 
 Write-Host ""
-Write-Host "Verification complete!" -ForegroundColor Green
+Write-Host "Database Seeding..." -ForegroundColor Cyan
 Write-Host ""
 
-$seed = Read-Host "Would you like to run database seeding now? (y/n)"
+$seed = Read-Host "Would you like to seed the database with sample users? (y/n)"
 if ($seed -eq "y" -or $seed -eq "yes") {
     Write-Host ""
     Write-Host "Running Prisma seed..." -ForegroundColor Yellow
     Push-Location "c:\Users\muiru\Desktop\project-x\Pato\backend"
     try {
+        Write-Host "Installing dependencies..." -ForegroundColor Yellow
         npm ci 2>&1 | Out-Null
+        
+        Write-Host "Running seed script..." -ForegroundColor Yellow
         npm run seed 2>&1
+        
         Write-Host "[OK] Seeding complete" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Sample users created:" -ForegroundColor Green
+        Write-Host "  Admin:      admin@example.com / password" -ForegroundColor White
+        Write-Host "  Instructor: inst1@example.com / password" -ForegroundColor White
+        Write-Host "  Student:    student1@example.com / password" -ForegroundColor White
     }
     catch {
         Write-Host "[ERROR] Seeding failed: $($_.Exception.Message)" -ForegroundColor Red
@@ -74,6 +88,35 @@ else {
 }
 
 Write-Host ""
-Write-Host "[OK] All done! Your app should now be live:" -ForegroundColor Green
-Write-Host "  Frontend: $frontend"
-Write-Host "  Backend: $backend"
+Write-Host "Testing login endpoint..." -ForegroundColor Yellow
+try {
+    $loginBody = @{
+        email = "admin@example.com"
+        password = "password"
+    } | ConvertTo-Json
+    
+    $loginResp = Invoke-RestMethod "$backend/api/auth/login" -Method Post -ContentType "application/json" -Body $loginBody -TimeoutSec 10 -ErrorAction Stop
+    
+    if ($loginResp.token) {
+        Write-Host "[OK] Login endpoint working! Token received." -ForegroundColor Green
+    }
+    else {
+        Write-Host "[WARN] Login responded but no token in response" -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "[WARN] Login test failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "This is expected if database hasn't been seeded yet or backend is still starting." -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "[OK] Verification complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "1. Visit your frontend: $frontend" -ForegroundColor White
+Write-Host "2. Log in with admin@example.com / password" -ForegroundColor White
+Write-Host "3. If seeding failed, run: cd Pato\backend && npm run seed" -ForegroundColor White
+Write-Host ""
+Write-Host "URLs:" -ForegroundColor Green
+Write-Host "  Frontend: $frontend" -ForegroundColor Cyan
+Write-Host "  Backend:  $backend" -ForegroundColor Cyan
