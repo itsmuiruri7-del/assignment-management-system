@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd Pato/backend && npm ci && npx prisma generate",
-    "start": "cd Pato/backend && node src/server.js"
+    "build": "sh build.sh",
+    "start": "sh start.sh"
   }
 }
