@@ -217,6 +217,47 @@ app.post('/api/init-database', async (_req, res) => {
   }
 });
 
+// Update all user passwords endpoint
+app.post('/api/admin/update-passwords', async (_req, res) => {
+  try {
+    logger.info('Password update endpoint called');
+    
+    const bcrypt = (await import('bcryptjs')).default;
+    const newPassword = _req.body.password || '123456';
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Get all users
+    const allUsers = await prisma.user.findMany();
+    
+    // Update each user's password
+    const updated = [];
+    for (const user of allUsers) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { password: hashedPassword }
+      });
+      updated.push({
+        id: user.id,
+        email: user.email,
+        role: user.role
+      });
+      logger.info(`Password updated for user: ${user.email}`);
+    }
+    
+    return res.json({ 
+      message: `Updated ${updated.length} user passwords`,
+      status: 'OK',
+      usersUpdated: updated
+    });
+  } catch (err) {
+    logger.error({ err }, 'Password update error');
+    return res.status(500).json({ 
+      message: 'Password update failed',
+      error: err.message
+    });
+  }
+});
+
 // Default route
 app.get('/', (req, res) => {
   res.send('EDU_Platform API is running...');
