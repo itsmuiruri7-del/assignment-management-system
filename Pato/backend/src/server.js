@@ -20,6 +20,12 @@ const PORT = process.env.PORT || 5001;
 // Logger (simple JSON logger)
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
+// Validate required environment variables
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'default-secret-key-change-in-production';
+  logger.warn('Using default JWT_SECRET - set JWT_SECRET environment variable in production');
+}
+
 // Middleware
 // Configure CORS from env: comma-separated origins or '*' for permissive
 const rawOrigins = process.env.CORS_ALLOWED_ORIGINS || '*';

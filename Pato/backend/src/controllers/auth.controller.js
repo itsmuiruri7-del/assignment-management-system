@@ -6,7 +6,11 @@ const prisma = new PrismaClient();
 
 // Generate JWT
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+  const secret = process.env.JWT_SECRET || 'default-secret-key-change-in-production';
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+  return jwt.sign({ id, role }, secret, {
     expiresIn: '30d',
   });
 };
