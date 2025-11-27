@@ -1,0 +1,13 @@
+{
+  "name": "assignment-management-system",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "cd Pato/backend && npm ci && npx prisma generate",
+    "start": "cd Pato/backend && node src/server.js",
+    "postinstall": "cd Pato/backend && npm ci --no-audit --no-fund"
+  }
+}
