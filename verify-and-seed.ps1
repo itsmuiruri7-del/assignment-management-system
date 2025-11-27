@@ -10,15 +10,36 @@ Write-Host ""
 $backend = "https://assignment-backend-qzrq.onrender.com"
 $frontend = "https://assignment-frontend-64jd.onrender.com"
 
-Write-Host "Testing backend connectivity..." -ForegroundColor Yellow
-try {
-    $rootResp = Invoke-WebRequest "$backend/" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
-    Write-Host "[OK] Backend root: $($rootResp.StatusCode) $($rootResp.StatusDescription)" -ForegroundColor Green
+# Function to test backend with retries
+function Test-BackendWithRetry {
+    param([int]$maxRetries = 5, [int]$delaySeconds = 10)
+    
+    for ($i = 1; $i -le $maxRetries; $i++) {
+        Write-Host "Testing backend connectivity (attempt $i/$maxRetries)..." -ForegroundColor Yellow
+        try {
+            $rootResp = Invoke-WebRequest "$backend/" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            Write-Host "[OK] Backend root: $($rootResp.StatusCode) $($rootResp.StatusDescription)" -ForegroundColor Green
+            return $true
+        }
+        catch {
+            if ($i -lt $maxRetries) {
+                Write-Host "[WAIT] Backend not ready yet. Retrying in $delaySeconds seconds..." -ForegroundColor Yellow
+                Start-Sleep -Seconds $delaySeconds
+            }
+            else {
+                Write-Host "[ERROR] Backend is not responding after $maxRetries attempts: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host ""
+                Write-Host "Troubleshooting:" -ForegroundColor Yellow
+                Write-Host "  1. Check Render dashboard - service may still be deploying" -ForegroundColor White
+                Write-Host "  2. Run: powershell -ExecutionPolicy Bypass -File diagnose-backend.ps1" -ForegroundColor White
+                Write-Host "  3. Check backend logs on Render for errors" -ForegroundColor White
+                return $false
+            }
+        }
+    }
 }
-catch {
-    Write-Host "[ERROR] Backend root failed: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Backend is not responding. Make sure Render deploy completed." -ForegroundColor Yellow
+
+if (-not (Test-BackendWithRetry)) {
     exit 1
 }
 

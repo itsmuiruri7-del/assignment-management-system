@@ -5,7 +5,7 @@ services:
     runtime: node
     region: oregon
     buildCommand: npm ci && npx prisma generate
-    startCommand: node src/server.js
+    startCommand: npm run start:migrations
     rootDir: Pato/backend
     envVars:
       - key: NODE_ENV
