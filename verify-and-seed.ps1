@@ -12,18 +12,20 @@ $frontend = "https://assignment-frontend-64jd.onrender.com"
 Write-Host "Testing backend connectivity..." -ForegroundColor Yellow
 try {
     $rootResp = Invoke-WebRequest "$backend/" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
-    Write-Host "✓ Backend root: $($rootResp.StatusCode) $($rootResp.StatusDescription)" -ForegroundColor Green
-} catch {
-    Write-Host "✗ Backend root failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[OK] Backend root: $($rootResp.StatusCode) $($rootResp.StatusDescription)" -ForegroundColor Green
+}
+catch {
+    Write-Host "[ERROR] Backend root failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 Write-Host ""
 Write-Host "Testing backend API endpoint..." -ForegroundColor Yellow
 try {
     $apiResp = Invoke-RestMethod "$backend/api/users/instructors" -TimeoutSec 10 -ErrorAction Stop
-    Write-Host "✓ API endpoint: returned $($apiResp.Count) instructors" -ForegroundColor Green
-} catch {
-    Write-Host "✗ API endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[OK] API endpoint: returned $($apiResp.Count) instructors" -ForegroundColor Green
+}
+catch {
+    Write-Host "[ERROR] API endpoint failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 Write-Host ""
@@ -33,14 +35,17 @@ try {
     $loginHtml = $loginPage.Content
     
     if ($loginHtml -match "assignment-backend-qzrq.onrender.com") {
-        Write-Host "✓ Frontend login page contains correct API URL" -ForegroundColor Green
-    } elseif ($loginHtml -match "localhost:5001") {
-        Write-Host "⚠ Frontend login page still contains localhost:5001 (deploy may not be complete)" -ForegroundColor Yellow
-    } else {
-        Write-Host "⚠ Could not find API URL in login page (check manually)" -ForegroundColor Yellow
+        Write-Host "[OK] Frontend login page contains correct API URL" -ForegroundColor Green
     }
-} catch {
-    Write-Host "✗ Could not fetch frontend login page: $($_.Exception.Message)" -ForegroundColor Red
+    elseif ($loginHtml -match "localhost:5001") {
+        Write-Host "[WARN] Frontend login page still contains localhost:5001 (deploy may not be complete)" -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "[WARN] Could not find API URL in login page (check manually)" -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "[ERROR] Could not fetch frontend login page: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 Write-Host ""
@@ -55,17 +60,20 @@ if ($seed -eq "y" -or $seed -eq "yes") {
     try {
         npm ci 2>&1 | Out-Null
         npm run seed 2>&1
-        Write-Host "✓ Seeding complete" -ForegroundColor Green
-    } catch {
-        Write-Host "✗ Seeding failed: $($_.Exception.Message)" -ForegroundColor Red
-    } finally {
+        Write-Host "[OK] Seeding complete" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "[ERROR] Seeding failed: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    finally {
         Pop-Location
     }
-} else {
+}
+else {
     Write-Host "Skipped seeding." -ForegroundColor Cyan
 }
 
 Write-Host ""
-Write-Host "✓ All done! Your app should now be live:" -ForegroundColor Green
+Write-Host "[OK] All done! Your app should now be live:" -ForegroundColor Green
 Write-Host "  Frontend: $frontend"
 Write-Host "  Backend: $backend"

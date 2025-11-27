@@ -1,0 +1,77 @@
+name: Update Render env vars and trigger deploy
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Update frontend env var (NEXT_PUBLIC_API_URL)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          FRONTEND_SERVICE_ID: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          API="https://api.render.com/v1/services/${FRONTEND_SERVICE_ID}"
+          echo "Fetching current frontend service config..."
+          svc=$(curl -s -H "Authorization: Bearer ${RENDER_API_KEY}" "$API")
+          envs=$(echo "$svc" | jq '.envVars')
+          # Remove existing key if present, then add/replace NEXT_PUBLIC_API_URL
+          updated=$(echo "$envs" | jq 'map(select(.key != "NEXT_PUBLIC_API_URL")) + [{key: "NEXT_PUBLIC_API_URL", value: "https://assignment-backend-qzrq.onrender.com", secure: false}]')
+          echo "Patching frontend service envVars..."
+          curl -s -X PATCH "$API" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{ \"envVars\": $updated }" | jq -r '.message // "patched"'
+
+      - name: Trigger frontend deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          FRONTEND_SERVICE_ID: ${{ secrets.RENDER_FRONTEND_SERVICE_ID }}
+        run: |
+          echo "Triggering frontend deploy..."
+          curl -s -X POST "https://api.render.com/v1/services/${FRONTEND_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}' | jq -r '.id'
+
+      - name: Update backend env var (CORS_ALLOWED_ORIGINS)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          BACKEND_SERVICE_ID: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+        run: |
+          set -euo pipefail
+          API="https://api.render.com/v1/services/${BACKEND_SERVICE_ID}"
+          echo "Fetching current backend service config..."
+          svc=$(curl -s -H "Authorization: Bearer ${RENDER_API_KEY}" "$API")
+          envs=$(echo "$svc" | jq '.envVars')
+          # Remove existing key if present, then add/replace CORS_ALLOWED_ORIGINS
+          updated=$(echo "$envs" | jq 'map(select(.key != "CORS_ALLOWED_ORIGINS")) + [{key: "CORS_ALLOWED_ORIGINS", value: "https://assignment-frontend-64jd.onrender.com", secure: false}]')
+          echo "Patching backend service envVars..."
+          curl -s -X PATCH "$API" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{ \"envVars\": $updated }" | jq -r '.message // "patched"'
+
+      - name: Trigger backend deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          BACKEND_SERVICE_ID: ${{ secrets.RENDER_BACKEND_SERVICE_ID }}
+        run: |
+          echo "Triggering backend deploy..."
+          curl -s -X POST "https://api.render.com/v1/services/${BACKEND_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}' | jq -r '.id'
+
+      - name: Done
+        run: echo "Render env vars updated and deploys triggered."

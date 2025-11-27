@@ -1,6 +1,5 @@
 # Render Deployment Script
-# Usage: ./deploy-render.ps1
-# This script patches Render environment variables and triggers deploys.
+# Usage: powershell -ExecutionPolicy Bypass -File .\deploy-render.ps1
 
 param()
 
@@ -66,10 +65,10 @@ function Patch-ServiceEnvVars {
         Write-Host "[$serviceName] Patching environment variable '$key'..." -ForegroundColor Yellow
         $patch = Invoke-RestMethod -Headers @{ Authorization = "Bearer $RENDER_API_KEY" } -Uri $apiUrl -Method Patch -ContentType "application/json" -Body $body -ErrorAction Stop
         
-        Write-Host "[$serviceName] ✓ Environment variable patched successfully" -ForegroundColor Green
+        Write-Host "[$serviceName] [OK] Environment variable patched successfully" -ForegroundColor Green
         return $true
     } catch {
-        Write-Host "[$serviceName] ✗ ERROR patching env vars: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[$serviceName] [ERROR] patching env vars: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
 }
@@ -86,10 +85,10 @@ function Trigger-Deploy {
         Write-Host "[$serviceName] Triggering deploy..." -ForegroundColor Yellow
         $resp = Invoke-RestMethod -Headers @{ Authorization = "Bearer $RENDER_API_KEY" } -Uri $deployUrl -Method Post -ContentType "application/json" -Body '{}' -ErrorAction Stop
         
-        Write-Host "[$serviceName] ✓ Deploy triggered (id: $($resp.id))" -ForegroundColor Green
+        Write-Host "[$serviceName] [OK] Deploy triggered (id: $($resp.id))" -ForegroundColor Green
         return $resp.id
     } catch {
-        Write-Host "[$serviceName] ✗ ERROR triggering deploy: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[$serviceName] [ERROR] triggering deploy: $($_.Exception.Message)" -ForegroundColor Red
         return $null
     }
 }
@@ -118,9 +117,9 @@ if (Patch-ServiceEnvVars -serviceId $BACKEND_SERVICE_ID -key 'CORS_ALLOWED_ORIGI
 
 Write-Host ""
 if ($success) {
-    Write-Host "✓ Deployment complete! Both services will rebuild and deploy." -ForegroundColor Green
+    Write-Host "[OK] Deployment complete! Both services will rebuild and deploy." -ForegroundColor Green
     Write-Host "  Check Render dashboard for build progress."
-    Write-Host "  When deploys finish (2-5 minutes), run verification tests."
+    Write-Host "  When deploys finish, run verification tests."
 } else {
-    Write-Host "✗ Some operations failed. Check errors above." -ForegroundColor Red
+    Write-Host "[ERROR] Some operations failed. Check errors above." -ForegroundColor Red
 }
