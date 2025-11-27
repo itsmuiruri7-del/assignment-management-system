@@ -89,6 +89,66 @@ app.post('/api/emergency/fix-database', async (_req, res) => {
   }
 });
 
+// Initialize database schema endpoint - creates tables if they don't exist
+app.post('/api/init-database', async (_req, res) => {
+  try {
+    logger.info('Database initialization endpoint called');
+    
+    const { execSync } = await import('child_process');
+    
+    // Try to push schema
+    try {
+      execSync('npx prisma db push --skip-generate --accept-data-loss', { 
+        stdio: 'pipe',
+        cwd: process.cwd()
+      });
+      logger.info('Schema pushed successfully');
+    } catch (e) {
+      logger.warn('db push attempt result:', e.message);
+    }
+    
+    // Import PrismaClient and seed
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    // Verify schema exists
+    const userCount = await prisma.user.count();
+    
+    // Check if admin exists
+    const adminExists = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    
+    if (!adminExists) {
+      // Create admin user
+      const bcrypt = (await import('bcryptjs')).default;
+      const hashedPassword = await bcrypt.hash('password', 10);
+      
+      await prisma.user.create({
+        data: {
+          name: 'Admin User',
+          email: 'admin@example.com',
+          password: hashedPassword,
+          role: 'ADMIN'
+        }
+      });
+      logger.info('Admin user created');
+    }
+    
+    await prisma.$disconnect();
+    
+    return res.json({ 
+      message: 'Database initialized successfully',
+      status: 'OK',
+      userCount: await prisma.user.count()
+    });
+  } catch (err) {
+    logger.error({ err }, 'Database initialization error');
+    return res.status(500).json({ 
+      message: 'Database initialization failed',
+      error: err.message
+    });
+  }
+});
+
 // Default route
 app.get('/', (req, res) => {
   res.send('EDU_Platform API is running...');
