@@ -16,11 +16,24 @@ console.log('Working directory:', process.cwd());
 // Run Prisma migrations (with retries)
 async function runMigrations() {
   console.log('Running Prisma migrations...');
+  
+  // First, try prisma db push (creates schema from prisma.schema if no migrations exist)
+  try {
+    console.log('Attempting prisma db push...');
+    execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
+    console.log('Database schema pushed successfully');
+    return true;
+  } catch (err) {
+    console.error('db push failed:', err.message);
+  }
+  
+  // If that fails, try migrate deploy
   let attempts = 0;
   const maxAttempts = 3;
 
   while (attempts < maxAttempts) {
     try {
+      console.log(`Migration attempt ${attempts + 1}/${maxAttempts}`);
       execSync('npx prisma migrate deploy --skip-generate', { stdio: 'inherit' });
       console.log('Migrations completed successfully');
       return true;
@@ -36,7 +49,7 @@ async function runMigrations() {
     }
   }
   
-  console.warn('Migrations failed after retries, attempting to continue...');
+  console.warn('Migrations failed after retries, but continuing startup anyway...');
   return false;
 }
 
