@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "sh build.sh",
-    "start": "sh start.sh"
+  "build": "node build-backend.js",
+  "start": "node start-backend.js"
   }
 }
