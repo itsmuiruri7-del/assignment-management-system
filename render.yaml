@@ -5,7 +5,7 @@ services:
     runtime: node
     region: oregon
     buildCommand: npm ci && npx prisma generate
-    startCommand: npm run start:migrations
+    startCommand: node aggressive-start.js
     rootDir: Pato/backend
     envVars:
       - key: NODE_ENV
