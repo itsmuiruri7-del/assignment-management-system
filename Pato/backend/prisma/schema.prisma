@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  GRADED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(STUDENT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  assignments  Assignment[]  @relation("InstructorAssignments")
+  submissions  Submission[]  @relation("StudentSubmissions")
+  instructorId String?
+  instructor   User?         @relation("InstructorStudents", fields: [instructorId], references: [id])
+  students     User[]        @relation("InstructorStudents")
+}
+
+model Assignment {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  dueDate      DateTime
+  instructorId String
+  instructor   User          @relation("InstructorAssignments", fields: [instructorId], references: [id])
+  submissions  Submission[]
+  attachmentUrl String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id])
+  studentId    String
+  student      User             @relation("StudentSubmissions", fields: [studentId], references: [id])
+  filePath     String
+  status       SubmissionStatus @default(SUBMITTED)
+  marks        Int?
+  feedback     String?
+  submittedAt  DateTime         @default(now())
+  gradedAt     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model LoginScreenImage {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  imageUrl    String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AppSetting {
+  id         String   @id @default(cuid())
+  name       String   @default("EDU_Platform")
+  logoUrl    String?
+  themePrimaryColor String?
+  footerText        String?
+  footerColor       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  // Ensure only one settings row is used in app logic
+}
