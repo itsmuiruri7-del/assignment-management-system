@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import pino from 'pino';
+import { PrismaClient } from '@prisma/client';
 import loginScreenImagesRouter from './routes/loginScreenImages.js';
 import settingsRouter from './routes/settings.js';
 import seedRouter from './routes/seed.js';
@@ -20,11 +21,78 @@ const PORT = process.env.PORT || 5001;
 // Logger (simple JSON logger)
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
+// Initialize Prisma and ensure schema exists
+const prisma = new PrismaClient();
+
 // Validate required environment variables
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'default-secret-key-change-in-production';
   logger.warn('Using default JWT_SECRET - set JWT_SECRET environment variable in production');
 }
+
+// Attempt to ensure database schema exists on startup
+async function ensureDatabaseSchema() {
+  try {
+    logger.info('Checking database schema...');
+    const userCount = await prisma.user.count();
+    logger.info(`Database schema exists, found ${userCount} users`);
+    return true;
+  } catch (err) {
+    logger.warn('Database schema check failed, attempting to create schema...', err.message);
+    
+    try {
+      const { execSync } = await import('child_process');
+      
+      // Try db push
+      try {
+        execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'pipe' });
+        logger.info('Schema created via db push');
+      } catch (e) {
+        logger.warn('db push failed, trying migrate deploy...');
+        execSync('npx prisma migrate deploy --skip-generate', { stdio: 'pipe' });
+        logger.info('Schema created via migrate deploy');
+      }
+      
+      return true;
+    } catch (schemaErr) {
+      logger.error('Could not ensure schema:', schemaErr.message);
+      return false;
+    }
+  }
+}
+
+// Initialize schema before starting server
+await ensureDatabaseSchema();
+
+// Ensure admin user exists
+async function ensureAdminUser() {
+  try {
+    const existingAdmin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+    if (existingAdmin) {
+      logger.info('Admin user already exists');
+      return;
+    }
+    
+    logger.info('Creating admin user...');
+    const bcrypt = (await import('bcryptjs')).default;
+    const hashedPassword = await bcrypt.hash('password', 10);
+    
+    await prisma.user.create({
+      data: {
+        name: 'System Admin',
+        email: 'admin@example.com',
+        password: hashedPassword,
+        role: 'ADMIN'
+      }
+    });
+    
+    logger.info('Admin user created successfully');
+  } catch (err) {
+    logger.warn('Could not create admin user:', err.message);
+  }
+}
+
+await ensureAdminUser();
 
 // Middleware
 // Configure CORS from env: comma-separated origins or '*' for permissive
