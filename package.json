@@ -7,7 +7,6 @@
   },
   "scripts": {
     "build": "cd Pato/backend && npm ci && npx prisma generate",
-    "start": "cd Pato/backend && node src/server.js",
-    "postinstall": "cd Pato/backend && npm ci --no-audit --no-fund"
+    "start": "cd Pato/backend && node src/server.js"
   }
 }
