@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "start:migrations": "node start-with-migrations.js",
     "dev": "nodemon src/server.js",
-    "seed": "dotenv -- node prisma/seed.js"
+    "seed": "dotenv -- node prisma/seed.js",
+    "fix:database": "node fix-database-render.js"
   },
   "keywords": [],
   "author": "",

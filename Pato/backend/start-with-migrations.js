@@ -17,10 +17,10 @@ console.log('Working directory:', process.cwd());
 async function runMigrations() {
   console.log('Running Prisma migrations...');
   
-  // First, try prisma db push (creates schema from prisma.schema if no migrations exist)
+  // First, try prisma db push with force-reset (creates schema from prisma.schema if no migrations exist)
   try {
-    console.log('Attempting prisma db push...');
-    execSync('npx prisma db push --skip-generate --accept-data-loss', { stdio: 'inherit' });
+    console.log('Attempting prisma db push with force-reset...');
+    execSync('npx prisma db push --skip-generate --accept-data-loss --force-reset', { stdio: 'inherit' });
     console.log('Database schema pushed successfully');
     return true;
   } catch (err) {
