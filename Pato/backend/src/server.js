@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5001;
 // Logger (simple JSON logger)
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
-// Initialize Prisma and ensure schema exists
+// Initialize Prisma
 const prisma = new PrismaClient();
 
 // Validate required environment variables
@@ -49,8 +49,12 @@ async function ensureDatabaseSchema() {
         logger.info('Schema created via db push');
       } catch (e) {
         logger.warn('db push failed, trying migrate deploy...');
-        execSync('npx prisma migrate deploy --skip-generate', { stdio: 'pipe' });
-        logger.info('Schema created via migrate deploy');
+        try {
+          execSync('npx prisma migrate deploy --skip-generate', { stdio: 'pipe' });
+          logger.info('Schema created via migrate deploy');
+        } catch (migrateErr) {
+          logger.warn('migrate deploy also failed, continuing anyway');
+        }
       }
       
       return true;
@@ -62,7 +66,11 @@ async function ensureDatabaseSchema() {
 }
 
 // Initialize schema before starting server
-await ensureDatabaseSchema();
+try {
+  await ensureDatabaseSchema();
+} catch (err) {
+  logger.error('Failed to initialize schema:', err.message);
+}
 
 // Ensure admin user exists
 async function ensureAdminUser() {
@@ -75,7 +83,7 @@ async function ensureAdminUser() {
     
     logger.info('Creating admin user...');
     const bcrypt = (await import('bcryptjs')).default;
-    const hashedPassword = await bcrypt.hash('password', 10);
+    const hashedPassword = await bcrypt.hash('123456', 10);
     
     await prisma.user.create({
       data: {
@@ -92,7 +100,11 @@ async function ensureAdminUser() {
   }
 }
 
-await ensureAdminUser();
+try {
+  await ensureAdminUser();
+} catch (err) {
+  logger.error('Failed to ensure admin user:', err.message);
+}
 
 // Middleware
 // Configure CORS from env: comma-separated origins or '*' for permissive
@@ -217,37 +229,52 @@ app.post('/api/init-database', async (_req, res) => {
   }
 });
 
-// Update all user passwords endpoint
-app.post('/api/admin/update-passwords', async (_req, res) => {
+// Update all user passwords to 123456
+app.post('/api/update-all-passwords', async (_req, res) => {
   try {
     logger.info('Password update endpoint called');
     
     const bcrypt = (await import('bcryptjs')).default;
-    const newPassword = _req.body.password || '123456';
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const NEW_PASSWORD = '123456';
+    const usersToUpdate = [
+      'Patrick@patoh.com',
+      'patoh@example.com',
+      'kimanijj@gmail.com',
+      'instructor@comp-sci.edu',
+      'user.a@student.edu',
+      'user1@gmail.com'
+    ];
     
-    // Get all users
-    const allUsers = await prisma.user.findMany();
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(NEW_PASSWORD, 10);
     
-    // Update each user's password
-    const updated = [];
-    for (const user of allUsers) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { password: hashedPassword }
-      });
-      updated.push({
-        id: user.id,
-        email: user.email,
-        role: user.role
-      });
-      logger.info(`Password updated for user: ${user.email}`);
+    const results = [];
+    
+    // Update each user
+    for (const email of usersToUpdate) {
+      try {
+        const user = await prisma.user.findUnique({ where: { email } });
+        
+        if (!user) {
+          results.push({ email, status: 'not_found' });
+          continue;
+        }
+        
+        await prisma.user.update({
+          where: { email },
+          data: { password: hashedPassword }
+        });
+        
+        results.push({ email, status: 'updated' });
+      } catch (err) {
+        results.push({ email, status: 'error', error: err.message });
+      }
     }
     
     return res.json({ 
-      message: `Updated ${updated.length} user passwords`,
+      message: 'Password update completed',
       status: 'OK',
-      usersUpdated: updated
+      results
     });
   } catch (err) {
     logger.error({ err }, 'Password update error');
