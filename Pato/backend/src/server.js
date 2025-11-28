@@ -229,6 +229,22 @@ app.post('/api/init-database', async (_req, res) => {
   }
 });
 
+// Temporary debug: list users (limited fields) to inspect production emails
+app.get('/api/debug/list-users', async (_req, res) => {
+  try {
+    logger.info('Debug list-users endpoint called');
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true },
+      orderBy: { createdAt: 'asc' },
+      take: 200
+    });
+    return res.json({ message: 'User list', count: users.length, users });
+  } catch (err) {
+    logger.error({ err }, 'Failed to list users');
+    return res.status(500).json({ message: 'Failed to list users', error: err.message });
+  }
+});
+
 // Update all user passwords to 123456
 app.post('/api/update-all-passwords', async (_req, res) => {
   try {
