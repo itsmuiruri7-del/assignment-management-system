@@ -301,6 +301,44 @@ app.post('/api/update-all-passwords', async (_req, res) => {
   }
 });
 
+// Temporary: seed/upsert the six expected users and set password to 123456
+app.post('/api/seed/ensure-default-users', async (_req, res) => {
+  try {
+    logger.info('Seed ensure-default-users endpoint called');
+    const bcrypt = (await import('bcryptjs')).default;
+    const NEW_PASSWORD = '123456';
+    const hashedPassword = await bcrypt.hash(NEW_PASSWORD, 10);
+
+    const usersToEnsure = [
+      { email: 'Patrick@patoh.com', role: 'STUDENT', name: 'Patrick' },
+      { email: 'patoh@example.com', role: 'ADMIN', name: 'Patoh' },
+      { email: 'kimanijj@gmail.com', role: 'STUDENT', name: 'Kimanji' },
+      { email: 'instructor@comp-sci.edu', role: 'INSTRUCTOR', name: 'Instructor' },
+      { email: 'user.a@student.edu', role: 'STUDENT', name: 'User A' },
+      { email: 'user1@gmail.com', role: 'INSTRUCTOR', name: 'User One' }
+    ];
+
+    const results = [];
+    for (const u of usersToEnsure) {
+      try {
+        const upserted = await prisma.user.upsert({
+          where: { email: u.email },
+          update: { password: hashedPassword, name: u.name, role: u.role },
+          create: { email: u.email, name: u.name, role: u.role, password: hashedPassword }
+        });
+        results.push({ email: u.email, status: 'upserted', id: upserted.id });
+      } catch (err) {
+        results.push({ email: u.email, status: 'error', error: err.message });
+      }
+    }
+
+    return res.json({ message: 'Seed completed', results });
+  } catch (err) {
+    logger.error({ err }, 'Seed endpoint failed');
+    return res.status(500).json({ message: 'Seed failed', error: err.message });
+  }
+});
+
 // Default route
 app.get('/', (req, res) => {
   res.send('EDU_Platform API is running...');
